@@ -1,10 +1,19 @@
+from django.shortcuts import get_object_or_404
+
 from .forms import BirthdayForm
 from .utils import calculate_birthday_countdown
 from .models import Birthday
 from django.views.generic import (
     ListView, CreateView, UpdateView, DeleteView, DetailView
 )
-from django.urls import reverse_lazy
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpResponse
+
+
+@login_required
+def simple_view(request):
+    return HttpResponse('Страница для залогиненных пользователей')
 
 
 class BirthdayListView(ListView):
@@ -13,19 +22,31 @@ class BirthdayListView(ListView):
     paginate_by = 10
 
 
-class BirthdayCreateView(CreateView):
+class BirthdayCreateView(LoginRequiredMixin, CreateView):
     model = Birthday
     form_class = BirthdayForm
 
+    def form_valid(self, form):
+        form.instance.author = self.request.user
+        return super().form_valid(form)
 
-class BirthdayUpdateView(UpdateView):
+
+class BirthdayUpdateView(LoginRequiredMixin, UpdateView):
     model = Birthday
     form_class = BirthdayForm
 
+    def dispatch(self, request, *args, **kwargs):
+        get_object_or_404(Birthday, pk=kwargs['pk'], author=request.user)
+        return super().dispatch(request, *args, **kwargs)
 
-class BirthdayDeleteView(DeleteView):
+
+class BirthdayDeleteView(LoginRequiredMixin, DeleteView):
     model = Birthday
     success_url = ('birthday:list')
+
+    def dispatch(self, request, *args, **kwargs):
+        get_object_or_404(Birthday, pk=kwargs['pk'], author=request.user)
+        return super().dispatch(request, *args, **kwargs)
 
 
 class BirthdayDetailView(DetailView):
