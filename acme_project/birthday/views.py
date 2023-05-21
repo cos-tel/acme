@@ -1,8 +1,8 @@
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 
-from .forms import BirthdayForm
+from .forms import BirthdayForm, CongratulationForm
 from .utils import calculate_birthday_countdown
-from .models import Birthday
+from .models import Birthday, Congratulation
 from django.views.generic import (
     ListView, CreateView, UpdateView, DeleteView, DetailView
 )
@@ -18,6 +18,9 @@ def simple_view(request):
 
 class BirthdayListView(ListView):
     model = Birthday
+    queryset = Birthday.objects.prefetch_related(
+        'tags'
+    ).select_related('author')
     ordering = 'id'
     paginate_by = 10
 
@@ -57,5 +60,20 @@ class BirthdayDetailView(DetailView):
         context['birthday_countdown'] = calculate_birthday_countdown(
             self.object.birthday
         )
+        context['form'] = CongratulationForm()
+        context['congratulations'] = (
+            self.object.congratulations.select_related('author')
+        )
         return context
 
+
+@login_required
+def add_comment(request, pk):
+    birthday = get_object_or_404(Birthday, pk=pk)
+    form = CongratulationForm(request.POST)
+    if form.is_valid():
+        congratulation = form.save(commit=False)
+        congratulation.author = request.user
+        congratulation.birthday = birthday
+        congratulation.save()
+    return redirect('birthday:detail', pk=pk)
